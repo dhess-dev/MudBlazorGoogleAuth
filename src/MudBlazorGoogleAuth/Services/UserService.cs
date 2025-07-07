@@ -12,6 +12,7 @@ public interface IUserService
     Task<User?> GetUserByEmailAsync(string email);
     Task UpdateAsync(User user);
     Task DeleteAsync(User user);
+    Task<AccountLink?> GetAccountLinkByIdAsync(string id);
     Task<User?> GetUserByProviderIdAsync(string id);
 }
 public class UserService(MudBlazorGoogleAuthContext context) : IUserService
@@ -51,13 +52,19 @@ public class UserService(MudBlazorGoogleAuthContext context) : IUserService
     }
     public async Task<User?> GetUserByProviderIdAsync(string id)
     {
-        AccountLink? accountLink = await Context.AccountLinks.FirstOrDefaultAsync(x => x.Id == id);
+        AccountLink? accountLink = await GetAccountLinkByIdAsync(id);
         if (accountLink is null)
         {
             return null;
         }
         User? result = await Context.Users.FirstOrDefaultAsync(x => x.Id == accountLink.UserId);
         return result;
+    }
+
+    public async Task<AccountLink?> GetAccountLinkByIdAsync(string id)
+    {
+        AccountLink? accountLink = await Context.AccountLinks.FirstOrDefaultAsync(x => x.Id == id);
+        return accountLink;
     }
     
     public async Task UpdateAsync(User user)

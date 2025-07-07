@@ -12,31 +12,41 @@
 
 @if (!_isAuthenticated)
 {
-    <h3>Login</h3>
-    <div class="card">
-        <div class="card-body">
-            <button class="btn btn-primary" @onclick="SignInWithGoogle">
-                Sign in with Google
-            </button>
-        </div>
-    </div>
+    <MudCard>
+        <MudCardContent Style="padding-bottom: 5px">
+            <MudText>To load your account you need to login</MudText>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@SignInWithGoogle">Login via Google</MudButton>
+        </MudCardActions>
+    </MudCard>
 }
 else
 {
-    <div class="d-flex align-items-center gap-3">
-        <div>
-            <p class="m-0 fw-bold">Welcome, @_user?.FirstName</p>
-            <small> @_user.Email</small>
-        </div>
-    </div>
+    <MudCard>
+        <MudCardHeader Style="padding-bottom: 5px">
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">Welcome @_user?.FirstName</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent Style="padding-top: 5px">
+            <MudText>This information is stored in the database:</MudText>
+            <MudText Typo="Typo.body2"> In the UserTable</MudText>
+            <MudText Typo="Typo.body2">Id: @_user.Id</MudText>
+            <MudText Typo="Typo.body2">Firstname: @_user.FirstName</MudText>
+            <MudText Typo="Typo.body2">Lastname: @_user.LastName</MudText>
+            <MudText Typo="Typo.body2">Email: @_user.Email</MudText>
+            <MudText Typo="Typo.body2">In the AccountLink</MudText>
+            <MudText Typo="Typo.body2">ProviderId: @_accountLink?.Id</MudText>
+            <MudText Typo="Typo.body2">UserId: @_accountLink?.UserId</MudText>
+        </MudCardContent>
+    </MudCard>
 }
 
 @code {
-    private string _message = string.Empty;
     private bool _isAuthenticated;
-    private string? _userName;
-    private string? _email;
     private User? _user;
+    private AccountLink? _accountLink;
 
     protected override async Task OnInitializedAsync()
     {
@@ -64,20 +74,20 @@ else
                 FirstName = authState.User.FindFirst(ClaimTypes.GivenName)?.Value ?? string.Empty,
                 LastName = authState.User.FindFirst(ClaimTypes.GivenName)?.Value ?? string.Empty,
             };
-            AccountLink accountLink = new AccountLink()
+            _accountLink = new AccountLink()
             {
                 Id = nameIdentifier,
                 UserId = userId
             };
-            await UserService.CreateAsync(user, accountLink);
+            await UserService.CreateAsync(user, _accountLink);
         }
         _user = await UserService.GetUserByProviderIdAsync(nameIdentifier);
+        _accountLink = await UserService.GetAccountLinkByIdAsync(nameIdentifier);
         _isAuthenticated = _user is not null;
     }
 
     private void SignInWithGoogle()
     {
-        _message = "Redirecting to Google …";
         NavigationManager.NavigateTo("/api/Auth/login-google", forceLoad: true);
     }
 
