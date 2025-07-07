@@ -1,59 +1,84 @@
 ﻿@page "/"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazorGoogleAuth.Model
+@using MudBlazorGoogleAuth.Services
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IUserService UserService
+@rendermode InteractiveServer
 
 <PageTitle>Home</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">Welcome to your new app, powered by MudBlazor and the .NET 9 Template!</MudText>
+@if (!_isAuthenticated)
+{
+    <h3>Login</h3>
+    <div class="card">
+        <div class="card-body">
+            <button class="btn btn-primary" @onclick="SignInWithGoogle">
+                Sign in with Google
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-3">
+        <div>
+            <p class="m-0 fw-bold">Welcome, @_user?.FirstName</p>
+            <small> @_user.Email</small>
+        </div>
+    </div>
+}
 
-<MudAlert Severity="Severity.Normal" ContentAlignment="HorizontalAlignment.Start">
-    You can find documentation and examples on our website here:
-    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        <b>www.mudblazor.com</b>
-    </MudLink>
-</MudAlert>
+@code {
+    private string _message = string.Empty;
+    private bool _isAuthenticated;
+    private string? _userName;
+    private string? _email;
+    private User? _user;
 
-<br />
-<MudText Typo="Typo.h5" GutterBottom="true">Interactivity in this Template</MudText>
-<br />
-<MudText Typo="Typo.body2">
-    When you opt for the "Global" Interactivity Location, <br />
-    the render modes are defined in App.razor and consequently apply to all child components.<br />
-    In this case, providers are globally set in the MainLayout.<br />
-    <br />
-    On the other hand, if you choose the "Per page/component" Interactivity Location,<br />
-    it is necessary to include the <br />
-    <br />
-    &lt;MudPopoverProvider /&gt; <br />
-    &lt;MudDialogProvider /&gt; <br />
-    &lt;MudSnackbarProvider /&gt; <br />
-    <br />
-    components on every interactive page.<br />
-    <br />
-    If a render mode is not specified for a page, it defaults to Server-Side Rendering (SSR),<br />
-    similar to this page. While MudBlazor allows pages to be rendered in SSR,<br />
-    please note that interactive features, such as buttons and dropdown menus, will not be functional.
-</MudText>
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
 
-<br />
-<MudText Typo="Typo.h5" GutterBottom="true">What's New in Blazor with the Release of .NET 9</MudText>
-<br />
+        await CreateOrLoadUser(authState);
+    }
 
-<MudText Typo="Typo.h6" GutterBottom="true">Prerendering</MudText>
-<MudText Typo="Typo.body2" GutterBottom="true">
-    If you're exploring the features of .NET 9 Blazor,<br /> you might be pleasantly surprised to learn that each page is prerendered on the server,<br /> regardless of the selected render mode.<br /><br />
-    This means that you'll need to inject all necessary services on the server,<br /> even when opting for the wasm (WebAssembly) render mode.<br /><br />
-    This prerendering functionality is crucial to ensuring that WebAssembly mode feels fast and responsive,<br /> especially when it comes to initial page load times.<br /><br />
-    For more information on how to detect prerendering and leverage the RenderContext, you can refer to the following link:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issuecomment-1783568121" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
-    </MudLink>
-</MudText>
+    public async Task CreateOrLoadUser(AuthenticationState authState)
+    {
+        string? nameIdentifier = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (nameIdentifier is null)
+        {
+            return;
+        }
 
-<br />
-<MudText Typo="Typo.h6" GutterBottom="true">InteractiveAuto</MudText>
-<MudText Typo="Typo.body2">
-    A discussion on how to achieve this can be found here:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issue-1950424116" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
-    </MudLink>
-</MudText>
+        if (await UserService.GetUserByProviderIdAsync(nameIdentifier) is null)
+        {
+            Guid userId = Guid.NewGuid();
+            User user = new User()
+            {
+                Id = userId,
+                Email = authState.User.FindFirst(ClaimTypes.Email)?.Value,
+                FirstName = authState.User.FindFirst(ClaimTypes.GivenName)?.Value ?? string.Empty,
+                LastName = authState.User.FindFirst(ClaimTypes.GivenName)?.Value ?? string.Empty,
+            };
+            AccountLink accountLink = new AccountLink()
+            {
+                Id = nameIdentifier,
+                UserId = userId
+            };
+            await UserService.CreateAsync(user, accountLink);
+        }
+        _user = await UserService.GetUserByProviderIdAsync(nameIdentifier);
+        _isAuthenticated = _user is not null;
+    }
+
+    private void SignInWithGoogle()
+    {
+        _message = "Redirecting to Google …";
+        NavigationManager.NavigateTo("/api/Auth/login-google", forceLoad: true);
+    }
+
+}
